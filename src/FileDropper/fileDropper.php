@@ -1,88 +1,82 @@
 <?php
 
-
+namespace App\FileDropper;
 /**
  * Class fileDropper
  */
 class fileDropper
 {
+
     /**
-     * @var string
-     */
-    private $backup_folder;
-    /**
-     * @var
-     */
-    private $cam_name;
-    /**
-     * @var
-     */
-    private $save_days;
-    /**
+     * Days on the files should not be deleted
      * @var array
      */
-    private $protect_time_window;
+    private $protect_days = [];
+
     /**
-     * @var
+     * Time on the files should not be deleted
+     * @var array
      */
-    private $now;
+    private $protect_time_window = [];
+
     /**
+     * Date on the files should not be deleted
+     * @var array
+     */
+    private $protect_date_range = [];
+
+    /**
+     * File type the files should not be deleted
+     * @var array
+     */
+    private $protect_file_types = [];
+
+    /**
+     * File TYPE GROUP the files should not be deleted
+     * @var array
+     */
+    private $protect_file_group = [];
+
+    /**
+     * Count deleted files
+     * @var int
+     */
+    private $deleted = 0;
+
+    /**
+     * Count copied files
+     * @var int
+     */
+    private $copied = 0;
+
+    /**
+     * Unix timestamp
+     * @var int
+     */
+    private $now = 0;
+
+    /**
+     * The dir how the file dropper work
      * @var string
      */
-    private $base_path;
+    private $work_dir = '';
 
     /**
-     * @var
+     * Backup dir name
+     * @var string
      */
-    private $output;
+    private $backup_folder = '';
 
-    /**
-     * @var
-     */
-    private $failed_copy;
 
-    private $copy_count;
-    private $delete_counter;
-
-    /**
-     * @return mixed
-     */
-    public function getFailedCopy()
+    public function __construct()
     {
-        return $this->failed_copy;
-    }
-
-
-    /**
-     * fileDropper constructor.
-     * @param string $base_path
-     * @param int $save_days
-     * @param array $protect_time_window
-     * @throws Exception
-     */
-    public function __construct($base_path = '', $save_days = 30, $protect_time_window = [])
-    {
-        if (!empty($base_path)) {
-            $this->setBasePath($base_path);
-        }
-
-        // calculate days to seconds
-        if ($save_days) {
-            $this->setSaveDays($save_days);
-        }
-
-        $this->now = time();
-
-        if (!empty($protect_time_window)) {
-            $this->setProtectTimeWindow($protect_time_window);
-        }
+        $this->resetNow();
     }
 
     /**
-     * Reset now
-     * set default unix timestamp
+     * Reset the unix timestamp
      */
-    private function setNow()
+    private function resetNow()
     {
         $this->now = time();
     }
@@ -120,18 +114,11 @@ class fileDropper
         return $this;
     }
 
-    /**
-     * @return mixed
-     */
-    public function getOutput()
-    {
-        return $this->output;
-    }
-
 
     /**
      * Create a archive save dir
      * @throws Exception
+     * @throws FileDropperException
      */
     private function makeFolder()
     {
@@ -141,7 +128,7 @@ class fileDropper
         }
 
         if (!mkdir($this->backup_folder, 0777, true)) {
-            throw new Exception('Make folder function failure');
+            throw new FileDropperException('Make folder function failure');
         }
 
         return true;
@@ -154,7 +141,7 @@ class fileDropper
      */
     public function execute()
     {
-        if (!$this->base_path) {
+        if (!$this->work_dir) {
             echo 'A save phat must be set ->setBasePath';
             return false;
         }
@@ -174,16 +161,16 @@ class fileDropper
         $rest = 0;
         $copy_count = 0;
 
-        if (is_dir($this->base_path)) {
-            if ($dh = opendir($this->base_path)) {
+        if (is_dir($this->work_dir)) {
+            if ($dh = opendir($this->work_dir)) {
                 while (($file = readdir($dh)) !== false) {
 
                     // only files
-                    if (is_file($this->base_path . $file)) {
+                    if (is_file($this->work_dir . $file)) {
                         $rest = $delete_counter - $delete;// create file time
-                        $file_time = filemtime($this->base_path . $file);
+                        $file_time = filemtime($this->work_dir . $file);
                         $file_time_date = date("H:i", $file_time);// create file parts
-                        $file_parts = pathinfo($this->base_path . $file);
+                        $file_parts = pathinfo($this->work_dir . $file);
                         /*$filename = $file_parts['filename'];
                         $file_ext = $file_parts['extension'];*/
 
@@ -192,11 +179,11 @@ class fileDropper
                         // drop old files and non protected
                         // 2 = 20.02.2020 - 18.01.2020 and not protected
                         if ($diff >= $this->save_days and !in_array($file_time_date, $this->protect_time_window)) {
-                            unlink($this->base_path . $file);
+                            unlink($this->work_dir . $file);
                             $delete++;
                         } elseif (in_array($file_time_date, $this->protect_time_window)) {
                             // protected copy to new folder
-                            $oldie = $this->base_path . $file;
+                            $oldie = $this->work_dir . $file;
                             $name = $this->backup_folder . $file;
                             if (!copy($oldie, $name)) {
                                 $failed_copy_filename[] = $file;
@@ -206,28 +193,14 @@ class fileDropper
                                 if ($this->isFileInBackup($file) and $diff >= $this->save_days) {
                                     $this->dropFile($file);
                                 }
-                                $copy_count++;
                             }
-
                         }
-                        $delete_counter++;
                     }
                 }
                 closedir($dh);
             }
         }
 
-        // set output
-        $this->output = $output = [
-            'cam_name' => $this->cam_name,
-            'delete' => $delete,
-            'rest' => $rest,
-            'failed_copy' => $failed_copy,
-            'failed_copy_filename' => $failed_copy_filename
-        ];
-
-        $this->failed_copy = $failed_copy;
-        $this->copy_count = $copy_count;
 
         // reset the timestamp and Folder
         $this->warmup();
@@ -235,6 +208,47 @@ class fileDropper
         return true;
     }
 
+    private function isFileProtected($file)
+    {
+
+        if (isset($this->protect_time_window) and $this->isFileTimeProtected($file)) {
+            return true;
+        }
+
+        if (isset($this->protect_date_range) and $this->isFileDateProtected($file)) {
+            return true;
+        }
+
+        if (isset($this->protect_file_types) and $this->isFileTypeProtected($file)) {
+            return true;
+        }
+
+        if (isset($this->protect_file_group) and $this->isFileTypeGroupProtected($file)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function isFileTimeProtected($file)
+    {
+        return false;
+    }
+
+    private function isFileDateProtected($file)
+    {
+        return false;
+    }
+
+    private function isFileTypeProtected($file)
+    {
+        return false;
+    }
+
+    private function isFileTypeGroupProtected($file)
+    {
+        return false;
+    }
 
     /**
      * Check file_exist in backup folder
@@ -254,20 +268,44 @@ class fileDropper
      * Drop: Unlink file from base folder
      * @param $file
      * @return bool
+     * @throws FileDropperException
      */
     private function dropFile($file)
     {
-        if (unlink($this->base_path . $file)) {
-            $this->delete_counter++;
+        if (!file_exists($this->work_dir . $file)) {
+            throw new FileDropperException('File: ' . $file . ' dont exists for drop');
+        }
+
+        if (unlink($this->work_dir . $file)) {
+            $this->deleted++;
             return true;
         }
-        return false;
+        throw new FileDropperException('File: ' . $file . ' wrong file permission for backup');
+    }
+
+
+    /**
+     * @param $file
+     * @return bool
+     * @throws FileDropperException
+     */
+    private function backupFile($file)
+    {
+        if (!file_exists($this->work_dir . $file)) {
+            throw new FileDropperException('File: ' . $file . ' dont exists for backup');
+        }
+
+        if (copy($this->work_dir . $file, $this->backup_folder . $file)) {
+            $this->copied++;
+            return true;
+        }
+
+        throw new FileDropperException('File: ' . $file . ' wrong file permission for backup');
     }
 
     /**
      * $this->setNow();
      * $this->setBackupFolder();
-     * @throws Exception
      */
     private function warmup()
     {
@@ -281,18 +319,9 @@ class fileDropper
      */
     private function setBackupFolder()
     {
-        $this->backup_folder = $this->base_path . 'backups/' . date('Y', $this->now) . '/';
+        $this->backup_folder = $this->work_dir . 'backups/' . date('Y', $this->now) . '/';
     }
 
-    /**
-     * @param mixed $cam_name
-     * @return fileDropper
-     */
-    public function setCamName($cam_name)
-    {
-        $this->cam_name = $cam_name;
-        return $this;
-    }
 
     /**
      * @return mixed
