@@ -1,6 +1,11 @@
 <?php
 
 namespace App\FileDropper;
+
+use DateInterval;
+use DatePeriod;
+use DateTime;
+
 /**
  * Class fileDropper
  */
@@ -9,9 +14,9 @@ class fileDropper
 
     /**
      * Days on the files should not be deleted
-     * @var array
+     * @var int
      */
-    private $protect_days = [];
+    private $protect_days = 0;
 
     /**
      * Time on the files should not be deleted
@@ -74,6 +79,244 @@ class fileDropper
     }
 
     /**
+     * @return int
+     */
+    public function getProtectDays(): int
+    {
+        return $this->protect_days;
+    }
+
+    /**
+     * Calculate the given int to days in sec.
+     * @param int $protect_days * 3600 * 24 = unix sec.
+     * @return fileDropper
+     */
+    public function setProtectDays(int $protect_days): fileDropper
+    {
+        $this->protect_days = 3600 * 24 * $protect_days;
+        return $this;
+    }
+
+    /**
+     * @return array
+     */
+    public function getProtectDateRange(): array
+    {
+        return $this->protect_date_range;
+    }
+
+    /**
+     * Input the single dates or date range to exclude from dropping
+     *
+     * Create a set of date range into array
+     * Input array ['09.12.2020-22.12.2020']
+     * Output array ['09.12.2020','10.12.2020','11.12.2020'....]
+     *
+     * Valid input range or single date ['09.12.2020-22.12.2020','07.12.2025','03.05.1999']
+     * @param array $protect_date_range
+     * @return fileDropper
+     * @throws \Exception
+     */
+    public function setProtectDateRange(array $protect_date_range): fileDropper
+    {
+        foreach ($protect_date_range as $date_range) {
+            if (strlen($date_range) > 10) {
+                $date_parts = explode('-', $date_range, 2);
+                $period = new DatePeriod(
+                    new DateTime($date_parts[0]),
+                    new DateInterval('P1D'),
+                    new DateTime($date_parts[1])
+                );
+                foreach ($period as $date) $this->protect_date_range[] = $date->format('d.m.Y');
+            }else{
+                $this->protect_date_range[] = $date_range;
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return array
+     */
+    public function getProtectFileTypes(): array
+    {
+        return $this->protect_file_types;
+    }
+
+    /**
+     * Can input a array of file types ['jpg','gif','mp3']
+     * file types if you wont to exclude from dropping.
+     *
+     * @param array $protect_file_types
+     * @return fileDropper
+     */
+    public function setProtectFileTypes(array $protect_file_types): fileDropper
+    {
+        $this->protect_file_types = $protect_file_types;
+        return $this;
+    }
+
+    /**
+     * @return array
+     */
+    public function getProtectFileGroup(): array
+    {
+        return $this->protect_file_group;
+    }
+
+    /**
+     * Exclude a group of file types
+     * available groups are
+     * - Images
+     * - Audio
+     * - Fonts
+     * - Movies
+     *
+     * Input array ['images']
+     *
+     * @param array $protect_file_group
+     * @return fileDropper
+     */
+    public function setProtectFileGroup(array $protect_file_group): fileDropper
+    {
+        foreach ($protect_file_group as $group){
+            if (strtolower($group) == 'images') $groups[] = $this->getMediaGroupImages();
+            if (strtolower($group) == 'audios') $groups[] = $this->getMediaGroupAudios();
+            if (strtolower($group) == 'fonts') $groups[] = $this->getMediaGroupFonts();
+            if (strtolower($group) == 'movies') $groups[] = $this->getMediaGroupMovies();
+        }
+        $this->protect_file_group = $protect_file_group;
+        return $this;
+    }
+
+    public function getMediaGroupImages()
+    {
+        return [
+            'jpg',
+            'gif',
+            'svg',
+            'bmp',
+            'tiff'
+        ];
+    }
+    public function getMediaGroupAudios()
+    {
+        return [
+            'mp3',
+            'org',
+            'wav',
+        ];
+    }
+
+    public function getMediaGroupMovies()
+    {
+        return [
+            'mp4',
+            'aiv',
+            'mpeg',
+        ];
+    }
+
+    public function getMediaGroupFonts()
+    {
+        return [
+            'otf',
+            'ttf',
+        ];
+    }
+
+    /**
+     * @return int
+     */
+    public function getDeleted(): int
+    {
+        return $this->deleted;
+    }
+
+    /**
+     * @param int $deleted
+     * @return fileDropper
+     */
+    public function setDeleted(int $deleted): fileDropper
+    {
+        $this->deleted = $deleted;
+        return $this;
+    }
+
+    /**
+     * @return int
+     */
+    public function getCopied(): int
+    {
+        return $this->copied;
+    }
+
+    /**
+     * @param int $copied
+     * @return fileDropper
+     */
+    public function setCopied(int $copied): fileDropper
+    {
+        $this->copied = $copied;
+        return $this;
+    }
+
+    /**
+     * @return int
+     */
+    public function getNow(): int
+    {
+        return $this->now;
+    }
+
+    /**
+     * @param int $now
+     * @return fileDropper
+     */
+    private function setNow(int $now): fileDropper
+    {
+        $this->now = $now;
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getWorkDir(): string
+    {
+        return $this->work_dir;
+    }
+
+    /**
+     * @param string $work_dir
+     * @return fileDropper
+     */
+    public function setWorkDir(string $work_dir): fileDropper
+    {
+        $this->work_dir = $work_dir;
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getBackupFolder(): string
+    {
+        return $this->backup_folder;
+    }
+
+    /**
+     * @param string $backup_folder
+     * @return fileDropper
+     */
+    public function setBackupFolder(string $backup_folder): fileDropper
+    {
+        $this->backup_folder = $backup_folder;
+        return $this;
+    }
+
+    /**
      * Reset the unix timestamp
      */
     private function resetNow()
@@ -104,15 +347,7 @@ class fileDropper
     }
 
 
-    /**
-     * @param string $base_path
-     * @return fileDropper
-     */
-    public function setBasePath($base_path)
-    {
-        $this->base_path = $base_path;
-        return $this;
-    }
+
 
 
     /**
@@ -153,13 +388,6 @@ class fileDropper
             $this->makeFolder();
         }
 
-        $failed_copy_filename = null;
-        $failed_copy = null;
-        $failed_copy = 0;
-        $delete_counter = 0;
-        $delete = 0;
-        $rest = 0;
-        $copy_count = 0;
 
         if (is_dir($this->work_dir)) {
             if ($dh = opendir($this->work_dir)) {
@@ -167,7 +395,7 @@ class fileDropper
 
                     // only files
                     if (is_file($this->work_dir . $file)) {
-                        $rest = $delete_counter - $delete;// create file time
+                        //$rest = $delete_counter - $delete;// create file time
                         $file_time = filemtime($this->work_dir . $file);
                         $file_time_date = date("H:i", $file_time);// create file parts
                         $file_parts = pathinfo($this->work_dir . $file);
@@ -180,14 +408,14 @@ class fileDropper
                         // 2 = 20.02.2020 - 18.01.2020 and not protected
                         if ($diff >= $this->save_days and !in_array($file_time_date, $this->protect_time_window)) {
                             unlink($this->work_dir . $file);
-                            $delete++;
+                            $this->deleted++;
                         } elseif (in_array($file_time_date, $this->protect_time_window)) {
                             // protected copy to new folder
                             $oldie = $this->work_dir . $file;
                             $name = $this->backup_folder . $file;
                             if (!copy($oldie, $name)) {
-                                $failed_copy_filename[] = $file;
-                                $failed_copy++;
+                              // error = $file;
+
                             } else {
                                 // if file exist in backup folder drop it from base is it to old
                                 if ($this->isFileInBackup($file) and $diff >= $this->save_days) {
@@ -317,7 +545,7 @@ class fileDropper
     /**
      * Set the Folder name as year 2020/
      */
-    private function setBackupFolder()
+    private function setBackupFolder_test()
     {
         $this->backup_folder = $this->work_dir . 'backups/' . date('Y', $this->now) . '/';
     }
@@ -330,5 +558,6 @@ class fileDropper
     {
         return $this->copy_count;
     }
+
 
 }
