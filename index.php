@@ -1,16 +1,24 @@
 <?php
-// here include the class and creat a object
-use App\FileDropper\fileDropper;
 
-require './src/FileDropper/fileDropper.php';
+
+use Redkitty\FileDropper\FileDropper;
+
+require_once __DIR__.'./vendor/autoload.php';
+
 
 // Setting default
-$dropper = new fileDropper();
+$dropper = new FileDropper();
 
 
 ############################################
-// run all cam folder ...nothing change here
 
         $dropper
-            ->setWorkDir('web/images/')->setProtectTimeWindow(['12:00-13:03']);
+            ->setWorkDir('web/images/')->setProtectTimeWindow(['12:00-13:03'])->execute();
 
+
+        if($dropper->getDeleted()) echo "Es wurden ".$dropper->getDeleted()." Datein gelöscht <br>";
+
+
+
+        // after delete create new test files
+        include './test/touch.php';

@@ -1,7 +1,7 @@
 <?php
 
 
-namespace App\FileDropper;
+namespace Redkitty\FileDropper;
 
 
 class FileDropperException extends \Exception
