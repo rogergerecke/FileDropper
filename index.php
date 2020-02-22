@@ -12,5 +12,5 @@ $dropper = new fileDropper();
 // run all cam folder ...nothing change here
 
         $dropper
-            ->setBasePath('web/images/')->setProtectDateRange(['09.12.2020-22.12.2020']);
+            ->setWorkDir('web/images/')->setProtectTimeWindow(['12:00-13:03']);
 

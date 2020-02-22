@@ -106,6 +106,38 @@ class fileDropper
     }
 
     /**
+     * @return array
+     */
+    public function getProtectTimeWindow(): array
+    {
+        return $this->protect_time_window;
+    }
+
+
+    /**
+     * @param array $protect_time_window
+     * @return fileDropper
+     */
+    public function setProtectTimeWindow($protect_time_window)
+    {
+        foreach ($protect_time_window as $time_window) {
+            if (strlen($time_window) > 5) {
+                $date_parts = explode('-', $time_window, 2);
+
+                for ($time = strtotime($date_parts[0]); $time < strtotime($date_parts[1]); $time = strtotime("+1 minutes", $time)) {
+                    $this->protect_time_window[] = date('H:s', $time);
+                }
+
+            } else {
+                $this->protect_time_window[] = $time_window;
+            }
+        }
+        print_r($this->protect_time_window);
+        return $this;
+    }
+
+
+    /**
      * Input the single dates or date range to exclude from dropping
      *
      * Create a set of date range into array
@@ -128,7 +160,7 @@ class fileDropper
                     new DateTime($date_parts[1])
                 );
                 foreach ($period as $date) $this->protect_date_range[] = $date->format('d.m.Y');
-            }else{
+            } else {
                 $this->protect_date_range[] = $date_range;
             }
         }
@@ -180,7 +212,7 @@ class fileDropper
      */
     public function setProtectFileGroup(array $protect_file_group): fileDropper
     {
-        foreach ($protect_file_group as $group){
+        foreach ($protect_file_group as $group) {
             if (strtolower($group) == 'images') $groups[] = $this->getMediaGroupImages();
             if (strtolower($group) == 'audios') $groups[] = $this->getMediaGroupAudios();
             if (strtolower($group) == 'fonts') $groups[] = $this->getMediaGroupFonts();
@@ -200,6 +232,7 @@ class fileDropper
             'tiff'
         ];
     }
+
     public function getMediaGroupAudios()
     {
         return [
@@ -336,19 +369,6 @@ class fileDropper
         return $this;
     }
 
-    /**
-     * @param array $protect_time_window
-     * @return fileDropper
-     */
-    public function setProtectTimeWindow($protect_time_window)
-    {
-        $this->protect_time_window = $protect_time_window;
-        return $this;
-    }
-
-
-
-
 
     /**
      * Create a archive save dir
@@ -372,7 +392,7 @@ class fileDropper
 
     /**
      * Execute the the file dropper and remove old files
-     * @throws Exception
+     * @throws FileDropperException
      */
     public function execute()
     {
@@ -381,7 +401,6 @@ class fileDropper
             return false;
         }
 
-        $this->setBackupFolder();
 
         // create a base/archive folder
         if (!file_exists($this->backup_folder)) {
@@ -393,37 +412,41 @@ class fileDropper
             if ($dh = opendir($this->work_dir)) {
                 while (($file = readdir($dh)) !== false) {
 
-                    // only files
-                    if (is_file($this->work_dir . $file)) {
-                        //$rest = $delete_counter - $delete;// create file time
-                        $file_time = filemtime($this->work_dir . $file);
-                        $file_time_date = date("H:i", $file_time);// create file parts
-                        $file_parts = pathinfo($this->work_dir . $file);
-                        /*$filename = $file_parts['filename'];
-                        $file_ext = $file_parts['extension'];*/
-
-                        $diff = $this->now - $file_time;
-
-                        // drop old files and non protected
-                        // 2 = 20.02.2020 - 18.01.2020 and not protected
-                        if ($diff >= $this->save_days and !in_array($file_time_date, $this->protect_time_window)) {
-                            unlink($this->work_dir . $file);
-                            $this->deleted++;
-                        } elseif (in_array($file_time_date, $this->protect_time_window)) {
-                            // protected copy to new folder
-                            $oldie = $this->work_dir . $file;
-                            $name = $this->backup_folder . $file;
-                            if (!copy($oldie, $name)) {
-                              // error = $file;
-
-                            } else {
-                                // if file exist in backup folder drop it from base is it to old
-                                if ($this->isFileInBackup($file) and $diff >= $this->save_days) {
-                                    $this->dropFile($file);
-                                }
-                            }
-                        }
+                    if (!$this->isFileProtected($file)) {
+                        $this->dropFile($file);
                     }
+                    /*
+                                        // only files
+                                        if (is_file($this->work_dir . $file)) {
+                                            //$rest = $delete_counter - $delete;// create file time
+                                            $file_time = filemtime($this->work_dir . $file);
+                                            $file_time_date = date("H:i", $file_time);// create file parts
+                                            $file_parts = pathinfo($this->work_dir . $file);
+                                            $filename = $file_parts['filename'];
+                                            $file_ext = $file_parts['extension'];
+
+                                            $diff = $this->now - $file_time;
+
+                                            // drop old files and non protected
+                                            // 2 = 20.02.2020 - 18.01.2020 and not protected
+                                            if ($diff >= $this->save_days and !in_array($file_time_date, $this->protect_time_window)) {
+                                                unlink($this->work_dir . $file);
+                                                $this->deleted++;
+                                            } elseif (in_array($file_time_date, $this->protect_time_window)) {
+                                                // protected copy to new folder
+                                                $oldie = $this->work_dir . $file;
+                                                $name = $this->backup_folder . $file;
+                                                if (!copy($oldie, $name)) {
+                                                  // error = $file;
+
+                                                } else {
+                                                    // if file exist in backup folder drop it from base is it to old
+                                                    if ($this->isFileInBackup($file) and $diff >= $this->save_days) {
+                                                        $this->dropFile($file);
+                                                    }
+                                                }
+                                            }
+                                        }*/
                 }
                 closedir($dh);
             }
@@ -438,6 +461,9 @@ class fileDropper
 
     private function isFileProtected($file)
     {
+        if (isset($this->protect_days) and $this->isFileDayProtected($file)) {
+            return true;
+        }
 
         if (isset($this->protect_time_window) and $this->isFileTimeProtected($file)) {
             return true;
@@ -458,23 +484,56 @@ class fileDropper
         return false;
     }
 
+
+    private function isFileDayProtected($file)
+    {
+        $file_seconds = filemtime($this->work_dir . $file);
+        $diff = $this->now - $file_seconds;
+        // 2days >= 30
+        if ($diff >= $this->protect_days) return false;
+
+        return true;
+    }
+
     private function isFileTimeProtected($file)
     {
+        $file_time = date("H:i", filemtime($this->work_dir . $file));
+
+        foreach ($this->protect_time_window as $time) {
+            if ($file_time == $time) return true;
+        }
+
         return false;
     }
 
     private function isFileDateProtected($file)
     {
+        $file_date = date("d.m.Y", filemtime($this->work_dir . $file));
+
+        foreach ($this->protect_date_range as $date) {
+            if ($file_date == $date) return true;
+        }
+
         return false;
     }
 
     private function isFileTypeProtected($file)
     {
+        $file_ext = pathinfo($this->work_dir . $file, PATHINFO_EXTENSION);
+        foreach ($this->protect_file_types as $ext) {
+            if ($file_ext == $ext) return true;
+        }
+
         return false;
     }
 
     private function isFileTypeGroupProtected($file)
     {
+        $file_ext = pathinfo($this->work_dir . $file, PATHINFO_EXTENSION);
+        foreach ($this->protect_file_group as $ext) {
+            if ($file_ext == $ext) return true;
+        }
+
         return false;
     }
 
