@@ -115,6 +115,10 @@ class fileDropper
 
 
     /**
+     * Set the time window were the files no delete
+     * Input format allowed single time or time range in array
+     * see example input: ['12:00-13:03','15:33','17:59']
+     *
      * @param array $protect_time_window
      * @return fileDropper
      */
@@ -122,12 +126,20 @@ class fileDropper
     {
         foreach ($protect_time_window as $time_window) {
             if (strlen($time_window) > 5) {
-                $date_parts = explode('-', $time_window, 2);
 
-               for ($time = strtotime($date_parts[0]); $time < strtotime($date_parts[1]);) {
-                   $time = $time + 60;
+                $date_parts = explode('-', $time_window, 2);
+                $start = strtotime($date_parts[0]);
+                $end = strtotime($date_parts[1]);
+
+                // anonymous function add + minute
+                $addMinute = function($time){
+                    return $time + 60;
+                };
+
+                for ($time = $start; $time < $end; $time = $addMinute($time)) {
                     $this->protect_time_window[] = date('H:i', $time);
                 }
+                $this->protect_time_window[] = date('H:i', $end);
 
             } else {
                 $this->protect_time_window[] = $time_window;
