@@ -124,8 +124,9 @@ class fileDropper
             if (strlen($time_window) > 5) {
                 $date_parts = explode('-', $time_window, 2);
 
-                for ($time = strtotime($date_parts[0]); $time < strtotime($date_parts[1]); $time = strtotime("+1 minutes", $time)) {
-                    $this->protect_time_window[] = date('H:s', $time);
+               for ($time = strtotime($date_parts[0]); $time < strtotime($date_parts[1]);) {
+                   $time = $time + 60;
+                    $this->protect_time_window[] = date('H:i', $time);
                 }
 
             } else {
