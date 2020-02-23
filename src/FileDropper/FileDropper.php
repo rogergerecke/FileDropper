@@ -469,7 +469,7 @@ class FileDropper
 
         // is backup dir set creat it if not exist
         if ($this->backup_folder) {
-            if (!file_exists($this->backup_folder)) {
+            if (!file_exists($this->work_dir.$this->backup_folder)) {
                 $this->makeFolder();
             }
         }
